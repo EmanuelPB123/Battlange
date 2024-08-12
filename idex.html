@@ -1,0 +1,678 @@
+<html>
+
+<head>
+    <base href="https://language-battleship.example.com/">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Battleship</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #007bff;
+        }
+
+        #game-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 20px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 40px);
+            gap: 2px;
+            background-color: #007bff;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            background-color: #ffffff;
+            border: 1px solid #007bff;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .cell:hover {
+            background-color: #e6f2ff;
+        }
+
+        .hit {
+            background-color: #ff6b6b !important;
+        }
+
+        .miss {
+            background-color: #4dabf7 !important;
+        }
+
+        .ship {
+            background-color: #28a745;
+        }
+
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        select,
+        button {
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        #word-container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        #description {
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        #options-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .option-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .option-button:hover {
+            background-color: #0056b3;
+        }
+
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        #score {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        .board-label {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Language Battleship</h1>
+
+    <div id="controls">
+        <select id="language-select">
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="ko">Korean</option>
+        </select>
+        <select id="difficulty-select">
+            <option value="easy">Elemental (20 palabras)</option>
+            <option value="medium">Intermedio (40 palabras)</option>
+            <option value="hard">Experto (80 palabras)</option>
+        </select>
+        <button id="start-game">Iniciar Juego</button>
+    </div>
+
+    <div id="game-container">
+        <div>
+            <div class="board-label">Tu tablero</div>
+            <div id="player-board" class="board"></div>
+        </div>
+        <div>
+            <div class="board-label">Tablero de la IA</div>
+            <div id="ai-board" class="board"></div>
+        </div>
+    </div>
+
+    <div id="word-container" style="display: none;">
+        <p id="description"></p>
+        <div id="options-container">
+            <button class="option-button" id="option1"></button>
+            <button class="option-button" id="option2"></button>
+        </div>
+    </div>
+
+    <div id="message"></div>
+    <div id="score">Puntuación: 0</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script>
+        const boardSize = 10;
+        const shipSizes = [5, 4, 3, 3, 2];
+        let playerBoard = [];
+        let aiBoard = [];
+        let playerShips = [];
+        let aiShips = [];
+        let score = 0;
+        let currentWord = '';
+        let isPlayerTurn = true;
+        let gameStarted = false;
+
+        const languageWords = {
+            en: {
+                easy: [
+                    { word: 'cat', description: 'A small domesticated carnivorous mammal with soft fur', options: ['cat', 'dog'] },
+                    { word: 'dog', description: 'A domesticated carnivorous mammal that typically has a long snout', options: ['cat', 'dog'] },
+                    { word: 'house', description: 'A building for human habitation', options: ['house', 'car'] },
+                    { word: 'tree', description: 'A woody perennial plant, typically having a single stem or trunk', options: ['tree', 'flower'] },
+                    { word: 'book', description: 'A written or printed work consisting of pages glued or sewn together', options: ['book', 'magazine'] },
+                    { word: 'car', description: 'A road vehicle, typically with four wheels, powered by an internal combustion engine', options: ['car', 'bicycle'] },
+                    { word: 'bicycle', description: 'A vehicle composed of two wheels held in a frame one behind the other, propelled by pedals', options: ['bicycle', 'motorcycle'] },
+                    { word: 'computer', description: 'An electronic device for storing and processing data', options: ['computer', 'television'] },
+                    { word: 'television', description: 'A device that receives television signals and reproduces them on a screen', options: ['television', 'radio'] },
+                    { word: 'radio', description: 'The transmission and reception of electromagnetic waves of radio frequency', options: ['radio', 'television'] },
+                    { word: 'phone', description: 'A device that uses either a cord or wireless connection to make voice calls', options: ['phone', 'tablet'] },
+                    { word: 'tablet', description: 'A small portable computer that uses a touchscreen as its primary input device', options: ['tablet', 'laptop'] },
+                    { word: 'laptop', description: 'A portable computer that can be used in various locations', options: ['laptop', 'desktop'] },
+                    { word: 'desktop', description: 'A personal computer designed to fit on or under a desk', options: ['desktop', 'laptop'] },
+                    { word: 'window', description: 'An opening in the wall or roof of a building, fitted with glass', options: ['window', 'door'] },
+                    { word: 'door', description: 'A hinged, sliding, or revolving barrier at the entrance to a building', options: ['door', 'window'] },
+                    { word: 'flower', description: 'The seed-bearing part of a plant, consisting of reproductive organs', options: ['flower', 'tree'] },
+                    { word: 'shoe', description: 'A covering for the foot, typically made of leather or other durable material', options: ['shoe', 'boot'] },
+                    { word: 'boot', description: 'A sturdy item of footwear covering the foot and ankle', options: ['boot', 'shoe'] },
+                    { word: 'train', description: 'A series of connected vehicles that run on a track and transport people or goods', options: ['train', 'bus'] },
+                    { word: 'bus', description: 'A large motor vehicle carrying passengers by road', options: ['bus', 'train'] }
+
+                    // Add 15 more word objects for a total of 20
+                ],
+                medium: [
+                    { word: 'astronomy', description: 'The scientific study of celestial objects, space, and the physical universe as a whole', options: ['astronomy', 'astrology'] },
+                    { word: 'democracy', description: 'A system of government by the whole population or all eligible members of a state', options: ['democracy', 'monarchy'] },
+                    { word: 'photosynthesis', description: 'The process by which green plants use sunlight to synthesize foods from carbon dioxide and water', options: ['photosynthesis', 'respiration'] },
+                    { word: 'ecosystem', description: 'A biological community of interacting organisms and their physical environment', options: ['ecosystem', 'habitat'] },
+                    { word: 'philosophy', description: 'The study of the fundamental nature of knowledge, reality, and existence', options: ['philosophy', 'psychology'] },
+                    { word: 'geology', description: 'The science that deals with the earth\'s physical structure and substance', options: ['geology', 'geography'] },
+                    { word: 'economics', description: 'The branch of knowledge concerned with the production, consumption, and transfer of wealth', options: ['economics', 'finance'] },
+                    { word: 'sociology', description: 'The study of the development, structure, and functioning of human society', options: ['sociology', 'psychology'] },
+                    { word: 'chemistry', description: 'The branch of science that deals with the identification of the substances of which matter is composed', options: ['chemistry', 'biology'] },
+                    { word: 'biology', description: 'The study of living organisms, divided into many specialized fields', options: ['biology', 'chemistry'] },
+                    { word: 'psychology', description: 'The scientific study of the human mind and its functions', options: ['psychology', 'philosophy'] },
+                    { word: 'anthropology', description: 'The study of human societies and cultures and their development', options: ['anthropology', 'sociology'] },
+                    { word: 'linguistics', description: 'The scientific study of language and its structure', options: ['linguistics', 'philology'] },
+                    { word: 'meteorology', description: 'The science that deals with the atmosphere and its phenomena, such as weather and climate', options: ['meteorology', 'climatology'] },
+                    { word: 'genetics', description: 'The study of heredity and the variation of inherited characteristics', options: ['genetics', 'genomics'] },
+                    { word: 'archaeology', description: 'The study of human history and prehistory through the excavation of sites and the analysis of artifacts', options: ['archaeology', 'paleontology'] },
+                    { word: 'paleontology', description: 'The branch of science concerned with fossil animals and plants', options: ['paleontology', 'archaeology'] },
+                    { word: 'neuroscience', description: 'The scientific study of the nervous system', options: ['neuroscience', 'psychology'] },
+                    { word: 'astrophysics', description: 'The branch of astronomy concerned with the physical nature of stars and other celestial bodies', options: ['astrophysics', 'astronomy'] },
+                    { word: 'cytology', description: 'The branch of biology concerned with the structure and function of plant and animal cells', options: ['cytology', 'histology'] },
+                    { word: 'histology', description: 'The study of the microscopic structure of tissues', options: ['histology', 'cytology'] },
+                    { word: 'ethics', description: 'The branch of knowledge that deals with moral principles', options: ['ethics', 'morality'] },
+                    { word: 'jurisprudence', description: 'The theory or philosophy of law', options: ['jurisprudence', 'legislation'] },
+                    { word: 'ontology', description: 'The branch of metaphysics dealing with the nature of being', options: ['ontology', 'epistemology'] },
+                    { word: 'epistemology', description: 'The theory of knowledge, especially with regard to its methods, validity, and scope', options: ['epistemology', 'ontology'] },
+                    { word: 'symphony', description: 'An elaborate musical composition for full orchestra', options: ['symphony', 'sonata'] },
+                    { word: 'sonata', description: 'A composition for one or more solo instruments, typically in several movements', options: ['sonata', 'symphony'] },
+                    { word: 'architecture', description: 'The art or practice of designing and constructing buildings', options: ['architecture', 'engineering'] },
+                    { word: 'engineering', description: 'The application of scientific principles to design and build machines, structures, and other items', options: ['engineering', 'architecture'] },
+                    { word: 'cartography', description: 'The science or practice of drawing maps', options: ['cartography', 'topography'] },
+                    { word: 'topography', description: 'The arrangement of the natural and artificial physical features of an area', options: ['topography', 'cartography'] },
+                    { word: 'calculus', description: 'The branch of mathematics that deals with the finding and properties of derivatives and integrals of functions', options: ['calculus', 'algebra'] },
+                    { word: 'algebra', description: 'A branch of mathematics that deals with symbols and the rules for manipulating those symbols', options: ['algebra', 'geometry'] },
+                    { word: 'geometry', description: 'The branch of mathematics concerned with the properties and relations of points, lines, surfaces, and solids', options: ['geometry', 'trigonometry'] },
+                    { word: 'trigonometry', description: 'The branch of mathematics dealing with the relations of the sides and angles of triangles', options: ['trigonometry', 'geometry'] },
+                    { word: 'robotics', description: 'The branch of technology that deals with the design, construction, operation, and application of robots', options: ['robotics', 'automation'] },
+                    { word: 'automation', description: 'The use or introduction of automatic equipment in a manufacturing or other process', options: ['automation', 'robotics'] },
+                    { word: 'biochemistry', description: 'The branch of science concerned with the chemical processes within and relating to living organisms', options: ['biochemistry', 'molecular biology'] },
+                    { word: 'molecular biology', description: 'The branch of biology that deals with the molecular basis of biological activity', options: ['molecular biology', 'biochemistry'] },
+                    { word: 'nanotechnology', description: 'The branch of technology that deals with dimensions and tolerances of less than 100 nanometers', options: ['nanotechnology', 'microtechnology'] },
+                    { word: 'microtechnology', description: 'Technology that deals with the fabrication of devices or systems in the micrometer scale', options: ['microtechnology', 'nanotechnology'] }
+
+                    // Add 35 more word objects for a total of 40
+                ],
+                hard: [
+                    { word: 'ubiquitous', description: 'Present, appearing, or found everywhere', options: ['ubiquitous', 'rare'] },
+                    { word: 'ephemeral', description: 'Lasting for a very short time', options: ['ephemeral', 'eternal'] },
+                    { word: 'paradigm', description: 'A typical example or pattern of something; a model', options: ['paradigm', 'paradox'] },
+                    { word: 'enigmatic', description: 'Difficult to interpret or understand; mysterious', options: ['enigmatic', 'obvious'] },
+                    { word: 'serendipity', description: 'The occurrence and development of events by chance in a happy or beneficial way', options: ['serendipity', 'destiny'] },
+                    { word: 'geology', description: 'The science that deals with the earth\'s physical structure and substance', options: ['geology', 'geography'] },
+                    { word: 'economics', description: 'The branch of knowledge concerned with the production, consumption, and transfer of wealth', options: ['economics', 'finance'] },
+                    { word: 'sociology', description: 'The study of the development, structure, and functioning of human society', options: ['sociology', 'psychology'] },
+                    { word: 'chemistry', description: 'The branch of science that deals with the identification of the substances of which matter is composed', options: ['chemistry', 'biology'] },
+                    { word: 'biology', description: 'The study of living organisms, divided into many specialized fields', options: ['biology', 'chemistry'] },
+                    { word: 'psychology', description: 'The scientific study of the human mind and its functions', options: ['psychology', 'philosophy'] },
+                    { word: 'anthropology', description: 'The study of human societies and cultures and their development', options: ['anthropology', 'sociology'] },
+                    { word: 'linguistics', description: 'The scientific study of language and its structure', options: ['linguistics', 'philology'] },
+                    { word: 'meteorology', description: 'The science that deals with the atmosphere and its phenomena, such as weather and climate', options: ['meteorology', 'climatology'] },
+                    { word: 'genetics', description: 'The study of heredity and the variation of inherited characteristics', options: ['genetics', 'genomics'] },
+                    { word: 'archaeology', description: 'The study of human history and prehistory through the excavation of sites and the analysis of artifacts', options: ['archaeology', 'paleontology'] },
+                    { word: 'paleontology', description: 'The branch of science concerned with fossil animals and plants', options: ['paleontology', 'archaeology'] },
+                    { word: 'neuroscience', description: 'The scientific study of the nervous system', options: ['neuroscience', 'psychology'] },
+                    { word: 'astrophysics', description: 'The branch of astronomy concerned with the physical nature of stars and other celestial bodies', options: ['astrophysics', 'astronomy'] },
+                    { word: 'cytology', description: 'The branch of biology concerned with the structure and function of plant and animal cells', options: ['cytology', 'histology'] },
+                    { word: 'histology', description: 'The study of the microscopic structure of tissues', options: ['histology', 'cytology'] },
+                    { word: 'ethics', description: 'The branch of knowledge that deals with moral principles', options: ['ethics', 'morality'] },
+                    { word: 'jurisprudence', description: 'The theory or philosophy of law', options: ['jurisprudence', 'legislation'] },
+                    { word: 'ontology', description: 'The branch of metaphysics dealing with the nature of being', options: ['ontology', 'epistemology'] },
+                    { word: 'epistemology', description: 'The theory of knowledge, especially with regard to its methods, validity, and scope', options: ['epistemology', 'ontology'] },
+                    { word: 'symphony', description: 'An elaborate musical composition for full orchestra', options: ['symphony', 'sonata'] },
+                    { word: 'sonata', description: 'A composition for one or more solo instruments, typically in several movements', options: ['sonata', 'symphony'] },
+                    { word: 'architecture', description: 'The art or practice of designing and constructing buildings', options: ['architecture', 'engineering'] },
+                    { word: 'engineering', description: 'The application of scientific principles to design and build machines, structures, and other items', options: ['engineering', 'architecture'] },
+                    { word: 'cartography', description: 'The science or practice of drawing maps', options: ['cartography', 'topography'] },
+                    { word: 'topography', description: 'The arrangement of the natural and artificial physical features of an area', options: ['topography', 'cartography'] },
+                    { word: 'calculus', description: 'The branch of mathematics that deals with the finding and properties of derivatives and integrals of functions', options: ['calculus', 'algebra'] },
+                    { word: 'algebra', description: 'A branch of mathematics that deals with symbols and the rules for manipulating those symbols', options: ['algebra', 'geometry'] },
+                    { word: 'geometry', description: 'The branch of mathematics concerned with the properties and relations of points, lines, surfaces, and solids', options: ['geometry', 'trigonometry'] },
+                    { word: 'trigonometry', description: 'The branch of mathematics dealing with the relations of the sides and angles of triangles', options: ['trigonometry', 'geometry'] },
+                    { word: 'robotics', description: 'The branch of technology that deals with the design, construction, operation, and application of robots', options: ['robotics', 'automation'] },
+                    { word: 'automation', description: 'The use or introduction of automatic equipment in a manufacturing or other process', options: ['automation', 'robotics'] },
+                    { word: 'biochemistry', description: 'The branch of science concerned with the chemical processes within and relating to living organisms', options: ['biochemistry', 'molecular biology'] },
+                    { word: 'molecular biology', description: 'The branch of biology that deals with the molecular basis of biological activity', options: ['molecular biology', 'biochemistry'] },
+                    { word: 'nanotechnology', description: 'The branch of technology that deals with dimensions and tolerances of less than 100 nanometers', options: ['nanotechnology', 'microtechnology'] },
+                    { word: 'microtechnology', description: 'Technology that deals with the fabrication of devices or systems in the micrometer scale', options: ['microtechnology', 'nanotechnology'] }
+
+                    // Add 75 more word objects for a total of 80
+                ]
+            },
+            es: {
+                easy: [
+                    { word: 'gato', description: 'Un pequeño mamífero carnívoro domesticado con pelaje suave', options: ['gato', 'perro'] },
+                    { word: 'perro', description: 'Un mamífero carnívoro domesticado que típicamente tiene un hocico largo', options: ['gato', 'perro'] },
+                    { word: 'casa', description: 'Un edificio para la habitación humana', options: ['casa', 'coche'] },
+                    { word: 'árbol', description: 'Una planta perenne leñosa, típicamente con un solo tallo o tronco', options: ['árbol', 'flor'] },
+                    { word: 'libro', description: 'Una obra escrita o impresa que consiste en páginas pegadas o cosidas juntas', options: ['libro', 'revista'] },
+                    { word: 'coche', description: 'Un vehículo de carretera, típicamente con cuatro ruedas, impulsado por un motor de combustión interna', options: ['coche', 'bicicleta'] },
+                    { word: 'bicicleta', description: 'Un vehículo compuesto por dos ruedas sostenidas en un marco, una detrás de la otra, impulsado por pedales', options: ['bicicleta', 'moto'] },
+                    { word: 'computadora', description: 'Un dispositivo electrónico para almacenar y procesar datos', options: ['computadora', 'televisor'] },
+                    { word: 'televisor', description: 'Un dispositivo que recibe señales de televisión y las reproduce en una pantalla', options: ['televisor', 'radio'] },
+                    { word: 'radio', description: 'El uso de ondas electromagnéticas para transmitir y recibir señales de sonido', options: ['radio', 'televisor'] },
+                    { word: 'teléfono', description: 'Un dispositivo que utiliza una conexión por cable o inalámbrica para hacer llamadas de voz', options: ['teléfono', 'tableta'] },
+                    { word: 'tableta', description: 'Un pequeño ordenador portátil que utiliza una pantalla táctil como su principal dispositivo de entrada', options: ['tableta', 'laptop'] },
+                    { word: 'laptop', description: 'Un ordenador portátil que puede ser utilizado en diversos lugares', options: ['laptop', 'computadora de escritorio'] },
+                    { word: 'ventana', description: 'Una abertura en la pared o el techo de un edificio, equipada con vidrio', options: ['ventana', 'puerta'] },
+                    { word: 'puerta', description: 'Una barrera que se abre y cierra en la entrada de un edificio o habitación', options: ['puerta', 'ventana'] },
+                    { word: 'flor', description: 'La parte de una planta que contiene las semillas y los órganos reproductivos', options: ['flor', 'árbol'] },
+                    { word: 'zapato', description: 'Una prenda que cubre el pie, típicamente hecha de cuero u otro material duradero', options: ['zapato', 'bota'] },
+                    { word: 'bota', description: 'Un tipo resistente de calzado que cubre el pie y el tobillo', options: ['bota', 'zapato'] },
+                    { word: 'tren', description: 'Una serie de vehículos conectados que corren sobre rieles y transportan personas o mercancías', options: ['tren', 'autobús'] },
+                    { word: 'autobús', description: 'Un vehículo de motor grande que transporta pasajeros por carretera', options: ['autobús', 'tren'] },
+                    { word: 'mesa', description: 'Un mueble con una superficie plana y patas, utilizado para colocar cosas sobre él', options: ['mesa', 'silla'] }
+
+                    // Add 15 more word objects for a total of 20
+                ],
+                medium: [
+                    { word: 'astronomía', description: 'El estudio científico de los objetos celestes, el espacio y el universo físico en su conjunto', options: ['astronomía', 'astrología'] },
+                    { word: 'democracia', description: 'Un sistema de gobierno por toda la población o todos los miembros elegibles de un estado', options: ['democracia', 'monarquía'] },
+                    { word: 'fotosíntesis', description: 'El proceso por el cual las plantas verdes utilizan la luz solar para sintetizar alimentos a partir de dióxido de carbono y agua', options: ['fotosíntesis', 'respiración'] },
+                    { word: 'ecosistema', description: 'Una comunidad biológica de organismos que interactúan y su entorno físico', options: ['ecosistema', 'hábitat'] },
+                    { word: 'filosofía', description: 'El estudio de la naturaleza fundamental del conocimiento, la realidad y la existencia', options: ['filosofía', 'psicología'] },
+                    { word: 'geología', description: 'La ciencia que estudia la estructura física y la sustancia de la Tierra', options: ['geología', 'geografía'] },
+                    { word: 'economía', description: 'La rama del conocimiento que se ocupa de la producción, el consumo y la transferencia de riqueza', options: ['economía', 'finanzas'] },
+                    { word: 'sociología', description: 'El estudio del desarrollo, la estructura y el funcionamiento de la sociedad humana', options: ['sociología', 'psicología'] },
+                    { word: 'química', description: 'La ciencia que estudia la identificación de las sustancias de las que se compone la materia', options: ['química', 'biología'] },
+                    { word: 'biología', description: 'El estudio de los organismos vivos, dividido en muchos campos especializados', options: ['biología', 'química'] },
+                    { word: 'psicología', description: 'El estudio científico de la mente humana y sus funciones', options: ['psicología', 'filosofía'] },
+                    { word: 'antropología', description: 'El estudio de las sociedades y culturas humanas y su desarrollo', options: ['antropología', 'sociología'] },
+                    { word: 'lingüística', description: 'El estudio científico del lenguaje y su estructura', options: ['lingüística', 'filología'] },
+                    { word: 'meteorología', description: 'La ciencia que trata de la atmósfera y sus fenómenos, como el tiempo y el clima', options: ['meteorología', 'climatología'] },
+                    { word: 'genética', description: 'El estudio de la herencia y la variación de las características heredadas', options: ['genética', 'genómica'] },
+                    { word: 'arqueología', description: 'El estudio de la historia y la prehistoria humana a través de la excavación de sitios y el análisis de artefactos', options: ['arqueología', 'paleontología'] },
+                    { word: 'paleontología', description: 'La rama de la ciencia que se ocupa de los animales y plantas fósiles', options: ['paleontología', 'arqueología'] },
+                    { word: 'neurociencia', description: 'El estudio científico del sistema nervioso', options: ['neurociencia', 'psicología'] },
+                    { word: 'astrofísica', description: 'La rama de la astronomía que se ocupa de la naturaleza física de las estrellas y otros cuerpos celestes', options: ['astrofísica', 'astronomía'] },
+                    { word: 'citología', description: 'La rama de la biología que se ocupa de la estructura y función de las células vegetales y animales', options: ['citología', 'histología'] },
+                    { word: 'histología', description: 'El estudio de la estructura microscópica de los tejidos', options: ['histología', 'citología'] },
+                    { word: 'ética', description: 'La rama del conocimiento que trata de los principios morales', options: ['ética', 'moralidad'] },
+                    { word: 'jurisprudencia', description: 'La teoría o filosofía del derecho', options: ['jurisprudencia', 'legislación'] },
+                    { word: 'ontología', description: 'La rama de la metafísica que trata de la naturaleza del ser', options: ['ontología', 'epistemología'] },
+                    { word: 'epistemología', description: 'La teoría del conocimiento, especialmente en relación con sus métodos, validez y alcance', options: ['epistemología', 'ontología'] },
+                    { word: 'sinfonía', description: 'Una composición musical elaborada para orquesta completa', options: ['sinfonía', 'sonata'] },
+                    { word: 'sonata', description: 'Una composición para uno o más instrumentos solistas, típicamente en varios movimientos', options: ['sonata', 'sinfonía'] },
+                    { word: 'arquitectura', description: 'El arte o práctica de diseñar y construir edificios', options: ['arquitectura', 'ingeniería'] },
+                    { word: 'ingeniería', description: 'La aplicación de principios científicos para diseñar y construir máquinas, estructuras y otros elementos', options: ['ingeniería', 'arquitectura'] },
+                    { word: 'cartografía', description: 'La ciencia o práctica de dibujar mapas', options: ['cartografía', 'topografía'] },
+                    { word: 'topografía', description: 'La disposición de las características físicas naturales y artificiales de un área', options: ['topografía', 'cartografía'] },
+                    { word: 'cálculo', description: 'La rama de las matemáticas que se ocupa de las propiedades de las derivadas e integrales de funciones', options: ['cálculo', 'álgebra'] },
+                    { word: 'álgebra', description: 'Una rama de las matemáticas que se ocupa de los símbolos y las reglas para manipular esos símbolos', options: ['álgebra', 'geometría'] },
+                    { word: 'geometría', description: 'La rama de las matemáticas que se ocupa de las propiedades y relaciones de puntos, líneas, superficies y sólidos', options: ['geometría', 'trigonometría'] },
+                    { word: 'trigonometría', description: 'La rama de las matemáticas que trata de las relaciones entre los lados y los ángulos de los triángulos', options: ['trigonometría', 'geometría'] },
+                    { word: 'robótica', description: 'La rama de la tecnología que se ocupa del diseño, construcción, operación y aplicación de robots', options: ['robótica', 'automatización'] },
+                    { word: 'automatización', description: 'El uso o introducción de equipos automáticos en un proceso de fabricación u otro', options: ['automatización', 'robótica'] },
+                    { word: 'bioquímica', description: 'La rama de la ciencia que se ocupa de los procesos químicos dentro y relacionados con los organismos vivos', options: ['bioquímica', 'biología molecular'] },
+                    { word: 'biología molecular', description: 'La rama de la biología que se ocupa de la base molecular de la actividad biológica', options: ['biología molecular', 'bioquímica'] },
+                    { word: 'nanotecnología', description: 'La rama de la tecnología que se ocupa de dimensiones y tolerancias de menos de 100 nanómetros', options: ['nanotecnología', 'microtecnología'] },
+                    { word: 'microtecnología', description: 'Tecnología que se ocupa de la fabricación de dispositivos o sistemas a escala micrométrica', options: ['microtecnología', 'nanotecnología'] }
+
+                    // Add 35 more word objects for a total of 40
+                ],
+                hard: [
+                    { word: 'ubícuo', description: 'Presente, que aparece o se encuentra en todas partes', options: ['ubícuo', 'raro'] },
+                    { word: 'efímero', description: 'Que dura muy poco tiempo', options: ['efímero', 'eterno'] },
+                    { word: 'paradigma', description: 'Un ejemplo típico o patrón de algo; un modelo', options: ['paradigma', 'paradoja'] },
+                    { word: 'enigmático', description: 'Difícil de interpretar o entender; misterioso', options: ['enigmático', 'obvio'] },
+                    { word: 'serendipia', description: 'La ocurrencia y desarrollo de eventos por casualidad de una manera feliz o beneficiosa', options: ['serendipia', 'destino'] },
+                    { word: 'ineludible', description: 'Que no se puede evitar o eludir', options: ['ineludible', 'evitable'] },
+                    { word: 'cognoscible', description: 'Que puede ser conocido o comprendido', options: ['cognoscible', 'incomprensible'] },
+                    { word: 'meticuloso', description: 'Que muestra gran atención al detalle; cuidadoso y preciso', options: ['meticuloso', 'descuido'] },
+                    { word: 'elocuente', description: 'Fluido o persuasivo en el habla o escritura', options: ['elocuente', 'taciturno'] },
+                    { word: 'disruptivo', description: 'Que causa interrupción o perturbación', options: ['disruptivo', 'tranquilo'] },
+                    { word: 'acrónimo', description: 'Una palabra formada a partir de las letras iniciales de otras palabras', options: ['acrónimo', 'anagrama'] },
+                    { word: 'epítome', description: 'Una persona o cosa que es un ejemplo perfecto de una cualidad o tipo particular', options: ['epítome', 'caricatura'] },
+                    { word: 'atavismo', description: 'La reaparición de una característica de un ancestro lejano que había desaparecido en generaciones anteriores', options: ['atavismo', 'innovación'] },
+                    { word: 'hermenéutica', description: 'La teoría y metodología de la interpretación, especialmente de textos religiosos', options: ['hermenéutica', 'exégesis'] },
+                    { word: 'sagaz', description: 'Que tiene la capacidad de discernir y tomar decisiones con rapidez e inteligencia', options: ['sagaz', 'torpe'] },
+                    { word: 'dilema', description: 'Una situación en la que hay que elegir entre dos alternativas, ambas indeseables', options: ['dilema', 'solución'] },
+                    { word: 'paradoja', description: 'Una declaración o proposición que, a pesar de un razonamiento aparentemente válido, conduce a una conclusión auto-contradictoria o lógicamente inaceptable', options: ['paradoja', 'axioma'] },
+                    { word: 'esotérico', description: 'Destinado o comprendido por solo un pequeño número de personas con conocimientos especializados', options: ['esotérico', 'popular'] },
+                    { word: 'pragmático', description: 'Que se enfoca en los aspectos prácticos o factibles de las cosas, con frecuencia a expensas de la teoría o la moralidad', options: ['pragmático', 'idealista'] },
+                    { word: 'melancólico', description: 'Un sentimiento persistente de tristeza profunda o reflexión', options: ['melancólico', 'alegre'] },
+                    { word: 'resiliencia', description: 'La capacidad de recuperarse rápidamente de dificultades; dureza', options: ['resiliencia', 'fragilidad'] },
+                    { word: 'efervescente', description: 'Viva y llena de entusiasmo o emoción', options: ['efervescente', 'apático'] },
+                    { word: 'anacrónico', description: 'Algo que es incorrecto en términos de cronología; fuera de lugar en el tiempo', options: ['anacrónico', 'moderno'] },
+                    { word: 'altruismo', description: 'La creencia en o la práctica de la preocupación desinteresada por el bienestar de los demás', options: ['altruismo', 'egoísmo'] },
+                    { word: 'criptomnesia', description: 'Un fenómeno donde una persona cree que ha creado un pensamiento original, cuando en realidad es un recuerdo de algo que había olvidado', options: ['criptomnesia', 'amnesia'] },
+                    { word: 'antítesis', description: 'Una persona o cosa que es lo opuesto directo de otra', options: ['antítesis', 'sinónimo'] },
+                    { word: 'hipérbole', description: 'Exageración deliberada o exagerada, no destinada a ser tomada literalmente', options: ['hipérbole', 'litote'] },
+                    { word: 'litote', description: 'Una forma de expresión que consiste en negar lo contrario de lo que se quiere afirmar, lo que a menudo da como resultado un subestimación', options: ['litote', 'hipérbole'] },
+                    { word: 'catarsis', description: 'El proceso de liberar y, así, obtener alivio de emociones fuertes o reprimidas', options: ['catarsis', 'represión'] },
+                    { word: 'dialéctica', description: 'El arte de investigar o discutir la verdad de opiniones', options: ['dialéctica', 'retórica'] },
+                    { word: 'epifanía', description: 'Una manifestación repentina e intuitiva de la esencia o significado de algo, generalmente iniciada por un simple, común o experiencia', options: ['epifanía', 'oscuridad'] },
+                    { word: 'iconoclasta', description: 'Una persona que ataca o rechaza creencias o instituciones establecidas', options: ['iconoclasta', 'tradicionalista'] },
+                    { word: 'irreverente', description: 'Que muestra una falta de respeto hacia personas o cosas que generalmente se toman en serio', options: ['irreverente', 'reverente'] },
+                    { word: 'prestidigitación', description: 'Habilidad o destreza en las manos para realizar trucos mágicos', options: ['prestidigitación', 'torpeza'] },
+                    { word: 'lugubre', description: 'Oscuro o triste, que provoca o expresa tristeza o melancolía', options: ['lugubre', 'alegre'] },
+                    { word: 'obnubilado', description: 'Nublado o embotado en la mente; incapaz de pensar con claridad', options: ['obnubilado', 'lúcido'] },
+                    { word: 'díscolo', description: 'Rebelde y no dispuesto a seguir las reglas o convenciones', options: ['díscolo', 'obediente'] },
+                    { word: 'paráfrasis', description: 'Una reexpresión de una declaración en otras palabras, manteniendo el mismo significado', options: ['paráfrasis', 'cita'] },
+                    { word: 'ontológico', description: 'Relativo a la rama de la filosofía que se ocupa de la naturaleza del ser', options: ['ontológico', 'epistemológico'] },
+                    { word: 'sublimar', description: 'Elevar algo a un nivel más alto de dignidad o pureza', options: ['sublimar', 'degradar'] },
+                    { word: 'quimera', description: 'Una ilusión o fantasía que es inalcanzable', options: ['quimera', 'realidad'] },
+                    { word: 'hedonista', description: 'Una persona que cree que el placer es el objetivo más importante en la vida', options: ['hedonista', 'estoico'] },
+                    { word: 'estoico', description: 'Una persona que puede soportar dolor o dificultad sin mostrar sus sentimientos o quejarse', options: ['estoico', 'hedonista'] },
+                    { word: 'dialéctica', description: 'El arte de investigar o discutir la verdad de opiniones', options: ['dialéctica', 'sofisma'] },
+                    { word: 'sofisma', description: 'Un argumento falaz utilizado con la intención de engañar', options: ['sofisma', 'dialéctica'] },
+                    { word: 'maniqueísmo', description: 'La tendencia a ver el mundo de manera simplista, dividido en blanco y negro', options: ['maniqueísmo', 'relativismo'] },
+                    { word: 'relativismo', description: 'La creencia de que los puntos de vista no tienen verdad absoluta o universal, sino que solo tienen valor relativo', options: ['relativismo', 'absolutismo'] },
+                    { word: 'absolutismo', description: 'La creencia en principios absolutos en materia política, filosófica, ética o teológica', options: ['absolutismo', 'relativismo'] },
+                    { word: 'inmutable', description: 'Incapaz de cambiar o ser cambiado', options: ['inmutable', 'mutable'] },
+                    { word: 'nefelibata', description: 'Una persona que vive en un mundo de sueños, apartada de la realidad', options: ['nefelibata', 'realista'] },
+                    { word: 'lacónico', description: 'Una forma de hablar o escribir que usa muy pocas palabras', options: ['lacónico', 'locuaz'] },
+                    { word: 'locuaz', description: 'Que habla mucho o fácilmente; hablador', options: ['locuaz', 'lacónico'] },
+                    { word: 'impertérrito', description: 'Que no se altera o se impresiona fácilmente; impasible', options: ['impertérrito', 'temeroso'] },
+                    { word: 'abstruso', description: 'Difícil de entender; incomprensible', options: ['abstruso', 'claro'] },
+                    { word: 'insólito', description: 'Que es raro o no común, fuera de lo ordinario', options: ['insólito', 'común'] },
+                    { word: 'magnánimo', description: 'Que tiene grandeza y generosidad de espíritu', options: ['magnánimo', 'mezquino'] },
+                    { word: 'parangón', description: 'Cosa o persona que se compara con otra, mostrando semejanzas', options: ['parangón', 'disparidad'] },
+                    { word: 'disparidad', description: 'Una diferencia grande e incompatible entre dos o más cosas', options: ['disparidad', 'parangón'] },
+                    { word: 'sibilino', description: 'Misterioso y difícil de interpretar', options: ['sibilino', 'transparente'] },
+                    { word: 'empírico', description: 'Basado en la observación o experiencia en lugar de la teoría pura', options: ['empírico', 'teórico'] },
+                    { word: 'ambivalente', description: 'Tener sentimientos encontrados o contradictorios hacia algo o alguien', options: ['ambivalente', 'decidido'] },
+                    { word: 'gregario', description: 'Que le gusta estar en grupo o en compañía', options: ['gregario', 'solitario'] },
+                    { word: 'idiosincrasia', description: 'Una forma o característica peculiar de una persona o cosa', options: ['idiosincrasia', 'normalidad'] },
+                    { word: 'melifluo', description: 'Dulce o suave, especialmente en relación con el sonido', options: ['melifluo', 'estridente'] },
+                    { word: 'estridente', description: 'Que produce un sonido fuerte, agudo y discordante', options: ['estridente', 'melifluo'] },
+                    { word: 'enervar', description: 'Causar que alguien se sienta fatigado o débil', options: ['enervar', 'energizar'] },
+                    { word: 'deleznable', description: 'Que es despreciable o indigno', options: ['deleznable', 'honorable'] },
+                    { word: 'fugaz', description: 'Que dura por poco tiempo', options: ['fugaz', 'duradero'] },
+                    { word: 'incólume', description: 'Que no ha sufrido daño; indemne', options: ['incólume', 'lesionado'] },
+                    { word: 'ignoto', description: 'Que no es conocido o que es desconocido', options: ['ignoto', 'famoso'] },
+                    { word: 'prolijo', description: 'Que se extiende mucho en palabras; detallado y minucioso', options: ['prolijo', 'conciso'] },
+                    { word: 'conciso', description: 'Que expresa las ideas con pocas palabras', options: ['conciso', 'prolijo'] },
+                    { word: 'consuetudinario', description: 'Que está basado en la costumbre o uso común', options: ['consuetudinario', 'extraordinario'] },
+                    { word: 'extraordinario', description: 'Que es inusual, fuera de lo común o sorprendente', options: ['extraordinario', 'ordinario'] },
+                    { word: 'inefable', description: 'Que no puede ser expresado en palabras; indescriptible', options: ['inefable', 'descriptible'] },
+                    { word: 'aberrante', description: 'Que se desvía de lo que es normal o esperado', options: ['aberrante', 'normal'] }
+
+                    // Add 75 more word objects for a total of 80
+                ]
+            },
+            fr: {
+                easy: [
+                    { word: 'chat', description: 'Un petit mammifère carnivore domestiqué à fourrure douce', options: ['chat', 'chien'] },
+                    { word: 'chien', description: 'Un mammifère carnivore domestiqué qui a typiquement un museau long', options: ['chat', 'chien'] },
+                    { word: 'maison', description: 'Un bâtiment pour l\'habitation humaine', options: ['maison', 'voiture'] },
+                    { word: 'arbre', description: 'Une plante ligneuse vivace, ayant typiquement une seule tige ou un tronc', options: ['arbre', 'fleur'] },
+                    { word: 'livre', description: 'Un ouvrage écrit ou imprimé composé de pages collées ou cousues ensemble', options: ['livre', 'magazine'] },
+                    // Add 15 more word objects for a total of 20
+                ],
+                medium: [
+                    { word: 'astronomie', description: 'L\'étude scientifique des objets célestes, de l\'espace et de l\'univers physique dans son ensemble', options: ['astronomie', 'astrologie'] },
+                    { word: 'démocratie', description: 'Un système de gouvernement par l\'ensemble de la population ou tous les membres éligibles d\'un État', options: ['démocratie', 'monarchie'] },
+                    { word: 'photosynthèse', description: 'Le processus par lequel les plantes vertes utilisent la lumière du soleil pour synthétiser des aliments à partir du dioxyde de carbone et de l\'eau', options: ['photosynthèse', 'respiration'] },
+                    { word: 'écosystème', description: 'Une communauté biologique d\'organismes en interaction et leur environnement physique', options: ['écosystème', 'habitat'] },
+                    { word: 'philosophie', description: 'L\'étude de la nature fondamentale de la connaissance, de la réalité et de l\'existence', options: ['philosophie', 'psychologie'] },
+                    // Add 35 more word objects for a total of 40
+                ],
+                hard: [
+                    { word: 'ubiquitaire', description: 'Présent, apparaissant ou trouvé partout', options: ['ubiquitaire', 'rare'] },
+                    { word: 'éphémère', description: 'Qui dure très peu de temps', options: ['éphémère', 'éternel'] },
+                    { word: 'paradigme', description: 'Un exemple typique ou un modèle de quelque chose', options: ['paradigme', 'paradoxe'] },
+                    { word: 'énigmatique', description: 'Difficile à interpréter ou à comprendre; mystérieux', options: ['énigmatique', 'évident'] },
+                    { word: 'sérendipité', description: 'L\'occurrence et le développement d\'événements par hasard d\'une manière heureuse ou bénéfique', options: ['sérendipité', 'destin'] },
+                    // Add 75 more word objects for a total of 80
+                ]
+            },
+            ko: { // Korean
+                easy: [
+                    { word: '고양이', description: '부드러운 털을 가진 작고 길들여진 육식 포유동물', options: ['고양이', '개'] },
+                    { word: '개', description: '일반적으로 긴 주둥이를 가진 길들여진 육식 포유동물', options: ['고양이', '개'] },
+                    // Add more Korean words...
+                ],
+                medium: [
+                    { word: '천문학', description: '천체, 우주, 그리고 물리적 우주 전체를 과학적으로 연구하는 학문', options: ['천문학', '점성술'] },
+                    // Add more medium difficulty Korean words...
+                ],
+                hard: [
+                    { word: '유비쿼터스', description: '어디에나 존재하거나, 나타나거나, 발견되는', options: ['유비쿼터스', '희귀한'] },
+                    // Add more hard Korean words...
+                ]
+            }
+        };
+
+        function createBoard(boardId) {
+            const boardElement = document.getElementById(boardId);
+            boardElement.innerHTML = '';
+            const board = Array(boardSize).fill().map(() => Array(boardSize).fill(0));
+            for (let i = 0; i < boardSize; i++) {
+                for (let j = 0; j < boardSize; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    if (boardId === 'ai-board') {
+                        cell.addEventListener('click', handlePlayerGuess);
+                    }
+                    boardElement.appendChild(cell);
+                }
+            }
+            return board;
+        }
+
+        function placeShips(board, ships) {
+            for (const size of shipSizes) {
+                let placed = false;
+                while (!placed) {
+                    const horizontal = Math.random() < 0.5;
+                    const row = Math.floor(Math.random() * boardSize);
+                    const col = Math.floor(Math.random() * boardSize);
+                    if (canPlaceShip(board, row, col, size, horizontal)) {
+                        placeShip(board, row, col, size, horizontal);
+                        ships.push({ size, hits: 0 });
+                        placed = true;
+                    }
+                }
+            }
+        }
+
+        function canPlaceShip(board, row, col, size, horizontal) {
+            if (horizontal) {
+                if (col + size > boardSize) return false;
+                for (let i = 0; i < size; i++) {
+                    if (board[row][col + i] !== 0) return false;
+                }
+            } else {
+                if (row + size > boardSize) return false;
+                for (let i = 0; i < size; i++) {
+                    if (board[row + i][col] !== 0) return false;
+                }
+            }
+            return true;
+        }
+
+        function placeShip(board, row, col, size, horizontal) {
+            if (horizontal) {
+                for (let i = 0; i < size; i++) {
+                    board[row][col + i] = 1;
+                }
+            } else {
+                for (let i = 0; i < size; i++) {
+                    board[row + i][col] = 1;
+                }
+            }
+        }
+
+        function handlePlayerGuess(event) {
+            if (!gameStarted || !isPlayerTurn) return;
+            const row = parseInt(event.target.dataset.row);
+            const col = parseInt(event.target.dataset.col);
+            if (aiBoard[row][col] === -1 || aiBoard[row][col] === -2) return;
+
+            if (aiBoard[row][col] === 1) {
+                event.target.classList.add('hit');
+                aiBoard[row][col] = -2;
+                score += 10;
+                updateScore();
+                showWordGuess();
+            } else {
+                event.target.classList.add('miss');
+                aiBoard[row][col] = -1;
+                endPlayerTurn();
+            }
+        }
+
+        function showWordGuess() {
+            const language = document.getElementById('language-select').value;
+            const difficulty = document.getElementById('difficulty-select').value;
+            const words = languageWords[language][difficulty];
+            const wordObj = words[Math.floor(Math.random() * words.length)];
+            currentWord = wordObj.word;
+            document.getElementById('description').textContent = wordObj.description;
+
+            const option1 = document.getElementById('option1');
+            const option2 = document.getElementById('option2');
+
+            if (Math.random() < 0.5) {
+                option1.textContent = wordObj.options[0];
+                option2.textContent = wordObj.options[1];
+            } else {
+                option1.textContent = wordObj.options[1];
+                option2.textContent = wordObj.options[0];
+            }
+
+            option1.onclick = () => checkAnswer(option1.textContent);
+            option2.onclick = () => checkAnswer(option2.textContent);
+
+            document.getElementById('word-container').style.display = 'block';
+            isPlayerTurn = false;
+        }
+
+        function checkAnswer(answer) {
+            if (answer.toLowerCase() === currentWord.toLowerCase()) {
+                score += 20;
+                updateScore();
+                showMessage('¡Correcto! +20 puntos');
+            } else {
+                showMessage(`Incorrecto. La palabra correcta era: ${currentWord}`);
+            }
+            document.getElementById('word-container').style.display = 'none';
+            endPlayerTurn();
+        }
+
+        function endPlayerTurn() {
+            isPlayerTurn = false;
+            setTimeout(aiTurn, 1000);
+        }
+
+        function aiTurn() {
+            let row, col;
+            do {
+                row = Math.floor(Math.random() * boardSize);
+                col = Math.floor(Math.random() * boardSize);
+            } while (playerBoard[row][col] === -1 || playerBoard[row][col] === -2);
+
+            const cell = document.querySelector(`#player-board [data-row="${row}"][data-col="${col}"]`);
+            if (playerBoard[row][col] === 1) {
+                cell.classList.add('hit');
+                playerBoard[row][col] = -2;
+                showMessage('¡La IA ha acertado!');
+                setTimeout(aiTurn, 1000);
+            } else {
+                cell.classList.add('miss');
+                playerBoard[row][col] = -1;
+                showMessage('La IA ha fallado');
+                isPlayerTurn = true;
+            }
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = `Puntuación: ${score}`;
+        }
+
+        function showMessage(msg) {
+            document.getElementById('message').textContent = msg;
+        }
+
+        document.getElementById('start-game').addEventListener('click', () => {
+            gameStarted = true;
+            isPlayerTurn = true;
+            score = 0;
+            updateScore();
+            playerBoard = createBoard('player-board');
+            aiBoard = createBoard('ai-board');
+            playerShips = [];
+            aiShips = [];
+            placeShips(playerBoard, playerShips);
+            placeShips(aiBoard, aiShips);
+            showPlayerShips();
+            showMessage('¡El juego ha comenzado! Es tu turno.');
+        });
+
+        function showPlayerShips() {
+            for (let i = 0; i < boardSize; i++) {
+                for (let j = 0; j < boardSize; j++) {
+                    if (playerBoard[i][j] === 1) {
+                        const cell = document.querySelector(`#player-board [data-row="${i}"][data-col="${j}"]`);
+                        cell.classList.add('ship');
+                    }
+                }
+            }
+        }
+
+        playerBoard = createBoard('player-board');
+        aiBoard = createBoard('ai-board');
+    </script>
+</body>
+
+</html>
